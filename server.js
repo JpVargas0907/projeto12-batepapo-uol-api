@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { response } from 'express';
 import cors from 'cors';
 import { MongoClient } from 'mongodb';
 import dotenv from "dotenv";
@@ -11,6 +11,8 @@ const server = express();
 server.use(cors());
 server.use(express.json());
 
+//Schemas 
+
 const userSchema = joi.object({
     name: joi.string().required()
 });
@@ -21,7 +23,7 @@ const messageSchema = joi.object({
     type: joi.string().valid('message', 'private_message').required(),
 })
 
-// database config 
+// database configuration
 
 const mongoClient = new MongoClient(process.env.MONGO_URL);
 let db;
@@ -29,6 +31,9 @@ let db;
 mongoClient.connect().then(() => {
     db = mongoClient.db("batepapo-uol");
 });
+
+
+// end points
 
 server.get('/', async (request, response) => {
     response.send("Rodando api de buenas!");
@@ -80,14 +85,23 @@ server.post('/participants', async (request, response) => {
     }
 });
 
-server.get('/messages/?limit', async (request, response) => {
+server.get('/messages', async (request, response) => {
     const { user } = request.headers;
+    const limit = parseInt(request.query.limit);
     const messages = await db.collection("messages").find().toArray();
-    console.log(user);
 
     try {
         const messagesFilter = messages.filter(message => message.to === user || message.from === user || message.to == 'Todos');
-        response.send(messagesFilter);
+        
+        if(!limit){
+            response.send(messagesFilter);
+        } else if(messagesFilter < limit){
+            response.send(messagesFilter);
+        } else {
+            const limitedMessages = await messagesFilter.splice(-{ limit });
+            response.send(limitedMessages);
+        }
+       
 
     } catch (error) {
         response.send(error);
@@ -147,4 +161,35 @@ server.post('/status', async (request, response) => {
     }
 });
 
+// Método que verifica a atividade do usuário no bate papo
+
+const TIMER = 15000;
+
+setInterval(async () => {
+    const users = await db.collection("user").find().toArray();
+    const now = Date.now();
+
+    try {
+        let verifyActivity = users.filter(user => (now - user.lastStatus) >= TIMER);
+        verifyActivity.map(user => {
+
+            db.collection("user").deleteOne({
+                name: user.name
+            });
+
+            db.collection("messages").insertOne({
+                from: user.name, 
+                to: 'Todos', 
+                text: 'sai da sala...', 
+                type: 'status',
+                time: dayjs().format('hh:mm:ss')
+            });
+        });
+
+    } catch (error) {
+        response.sendStatus(500);
+    }
+
+}, 3000);
+    
 server.listen(5000);

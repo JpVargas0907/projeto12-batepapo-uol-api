@@ -190,6 +190,6 @@ setInterval(async () => {
         response.sendStatus(500);
     }
 
-}, 3000);
+}, TIMER);
     
 server.listen(5000);

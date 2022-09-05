@@ -81,9 +81,13 @@ server.post('/participants', async (request, response) => {
 });
 
 server.get('/messages', async (request, response) => {
+    const { user } = request.headers;
+    const messages = await db.collection("messages").find().toArray();
+    console.log(user);
+
     try {
-        const messages = await db.collection("messages").find().toArray();
-        response.send(messages);
+        const messagesFilter = messages.filter(message => message.to === user || message.from === user || message.to == 'Todos');
+        response.send(messagesFilter);
 
     } catch (error) {
         response.send(error);

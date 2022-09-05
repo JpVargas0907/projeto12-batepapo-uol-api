@@ -80,7 +80,7 @@ server.post('/participants', async (request, response) => {
     }
 });
 
-server.get('/messages', async (request, response) => {
+server.get('/messages/?limit', async (request, response) => {
     const { user } = request.headers;
     const messages = await db.collection("messages").find().toArray();
     console.log(user);
@@ -131,8 +131,20 @@ server.post('/messages', async (request, response) => {
 
 });
 
-server.get('/status', async (request, response) => {
+server.post('/status', async (request, response) => {
+    const {user} = request.headers;
+    const updateUser = await db.collection("user").findOne({name: user});
 
+    try {
+        if(updateUser){
+            await db.collection("user").updateOne({name: user}, { $set: { lastStatus: Date.now() }});
+            response.sendStatus(200);
+        } else {
+            response.sendStatus(404);
+        }
+    } catch (error) {
+        response.sendStatus(500);
+    }
 });
 
 server.listen(5000);
